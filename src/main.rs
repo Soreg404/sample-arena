@@ -1,3 +1,4 @@
+use std::alloc::{alloc, dealloc, Layout};
 use std::fmt::{Debug, Formatter, Write};
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -68,12 +69,27 @@ impl Debug for ArenaAllocator<'_> {
 
 fn main() {
 	let cap = 10;
-	let mut arena_buffer = Vec::<u8>::with_capacity(cap);
-	unsafe {
-		arena_buffer.set_len(cap);
-	}
+
+	// let mut arena_buffer = Vec::<u8>::with_capacity(cap);
+	// unsafe {
+	// 	arena_buffer.set_len(cap);
+	// }
+
+	let ptr;
+	let layout = Layout::from_size_align(cap, align_of::<u8>())
+		.unwrap();
+	let arena_buffer = unsafe {
+		ptr = alloc(layout);
+		core::ptr::slice_from_raw_parts_mut(
+			ptr,
+			cap,
+		)
+			.as_mut()
+			.unwrap()
+	};
+
 	let mut arena = ArenaAllocator {
-		buffer: arena_buffer.as_mut_slice(),
+		buffer: arena_buffer,
 		sp: 0,
 	};
 
@@ -136,4 +152,8 @@ fn main() {
 	println!("======");
 	println!("alloc error:");
 	_ = dbg!(arena.allocate(2));
+
+	unsafe {
+		dealloc(ptr, layout);
+	}
 }
