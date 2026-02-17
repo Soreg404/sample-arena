@@ -1,9 +1,3 @@
-// #![feature(allocator_api)]
-
-// use std::alloc::GlobalAlloc;
-// use std::alloc::{alloc, AllocError, Allocator, Global, Layout};
-// use std::ptr::NonNull;
-
 use std::fmt::{Debug, Formatter, Write};
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -12,24 +6,6 @@ struct ArenaAllocator<'a> {
 	buffer: &'a mut [u8],
 	sp: usize,
 }
-
-// unsafe impl<'a> Allocator for ArenaAllocator<'a> {
-// 	fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-// 		let sp_tmp = self.sp;
-// 		let size = layout.size();
-// 		let range = sp_tmp..sp_tmp + size;
-// 		unsafe {
-// 		}
-// 		// self.sp += layout.size();
-// 		let s = &self.buffer[range];
-//
-// 		;
-// 	}
-//
-// 	unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
-// 		todo!()
-// 	}
-// }
 
 impl ArenaAllocator<'_> {
 	fn allocate(&mut self, size: usize) -> Result<NonNull<[u8]>, ()> {
@@ -48,6 +24,15 @@ impl ArenaAllocator<'_> {
 		);
 
 		Ok(NonNull::new(slice).unwrap())
+	}
+
+	fn allocate_t<'a, 'b, T>(&'a mut self) -> Result<&'b mut MaybeUninit<T>, ()> {
+		let size = size_of::<T>();
+		let bytes = self.allocate(size)?;
+
+		unsafe {
+			Ok(bytes.cast::<MaybeUninit<T>>().as_mut())
+		}
 	}
 }
 
@@ -92,7 +77,7 @@ fn main() {
 		sp: 0,
 	};
 
-	println!("arena at start:\t\t{arena:?}");
+	println!("arena at start:\t\t\t{arena:?}");
 
 	let bytes = arena
 		.allocate(
@@ -101,23 +86,54 @@ fn main() {
 		)
 		.unwrap();
 
-	println!("arena after allocation:\t{arena:?}");
+	println!("arena after allocation:\t\t{arena:?}");
 
 	let v = unsafe {
-		bytes.cast::<u32>().as_mut()
+		bytes.cast::<MaybeUninit<u32>>().as_mut()
 	};
 
-	println!("arena after value cast:\t{arena:?}");
-	println!("value hex before = {v:x}");
+	unsafe {
+		println!("value before write: {:x}", v.assume_init_mut());
+	}
 
-	*v = 0x11223344;
+	v.write(0x44332211);
 
-	println!("value hex after = {v:x}");
-	println!("arena after value init:\t{arena:?}");
+	println!("arena after value write:\t{arena:?}");
+	let v = unsafe {
+		v.assume_init_mut()
+	};
+	println!("value hex = {v:x}");
 
-	_ = dbg!(arena.allocate(7));
+
+	println!("======");
+	let vf = arena.allocate_t::<f32>()
+		.unwrap()
+		.write(20f32);
+
+	println!("arena after another alloc:\t{arena:?}");
+	println!("value = {vf}");
+
+	unsafe {
+		dbg!({
+			arena.buffer[4..10]
+				.as_ptr()
+				.cast::<f32>()
+				.as_ref()
+		});
+	}
+
+	let varr = arena.allocate_t::<[u8; 2]>()
+		.unwrap();
+	let varr = unsafe { varr.assume_init_mut() };
+
+	println!("======");
+	println!("arena before array write:\t{arena:?}");
+	varr[0] = 0x88;
+	varr[1] = 0x99;
+	println!("arena after array write:\t{arena:?}");
 
 
-	// let a = MaybeUninit::new(a);
-	// let a = a.write(0x01010101u32);
+	println!("======");
+	println!("alloc error:");
+	_ = dbg!(arena.allocate(2));
 }
