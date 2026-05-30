@@ -156,6 +156,7 @@ fn main() {
 	_ = dbg!(arena.allocate(2));
 
 	unsafe {
+		// NOTE to self: unnecessary at the end of program (system will clean it better/faster/stronger)
 		dealloc(ptr, layout);
 	}
 }
