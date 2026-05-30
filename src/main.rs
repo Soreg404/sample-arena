@@ -75,6 +75,7 @@ fn main() {
 	// 	arena_buffer.set_len(cap);
 	// }
 
+	// NOTE: idk what i'm doing here
 	let ptr;
 	let layout = Layout::from_size_align(cap, align_of::<u8>())
 		.unwrap();
@@ -87,6 +88,7 @@ fn main() {
 			.as_mut()
 			.unwrap()
 	};
+	////////////
 
 	let mut arena = ArenaAllocator {
 		buffer: arena_buffer,
